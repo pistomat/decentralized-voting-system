@@ -2,7 +2,7 @@
 pragma solidity ^0.8.18;
 
 /// @dev OpenZeppelin Contracts v4.8.3
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Owned} from "solmate/auth/Owned.sol";
 
 // Task: Develop a Decentralized Voting System
 // Description:
@@ -16,16 +16,16 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 // 6. Testing: Write tests for your smart contract to ensure it behaves as expected.
 
 // The minimum duration of an election is 1 day
-uint64 constant MINIMUM_ELECTION_DURATION = 60*60*24;
+uint64 constant MINIMUM_ELECTION_DURATION = 60 * 60 * 24;
 // The maximum duration of an election is 1 year
-uint64 constant MAXIMUM_ELECTION_DURATION = 60*60*24*365; 
+uint64 constant MAXIMUM_ELECTION_DURATION = 60 * 60 * 24 * 365;
 
 /// @title VotingApp
 /// @notice A simple decentralized voting system.
 /// @notice Ties are broken by the first candidate to reach the most votes.
 /// @dev Because of the way that ties are handled, the protocol is vulnerable to front-running attacks, but this is out of the scope of this small demo.
 /// @author pistomat
-contract VotingApp is Ownable {
+contract VotingApp is Owned {
     event VoterRegistered(address indexed voter);
     event CandidateRegistered(address indexed candidate);
     event VoteCast(address indexed voter, address indexed candidate);
@@ -41,8 +41,8 @@ contract VotingApp is Ownable {
     error VotingNotOpen();
     error ElectionNotEnded();
     error ElectionEnded();
-    error ElectionEndsTooSoon(uint64 end);
-    error ElectionEndsTooLate(uint64 end);
+    error ElectionDurationTooShort(uint64 end);
+    error ElectionDurationTooLong(uint64 end);
     error ZeroAddressInput();
 
     enum ElectionPhase {
@@ -61,7 +61,7 @@ contract VotingApp is Ownable {
     uint64 internal _electionEnd;
     ElectionPhase internal _electionPhase;
 
-    constructor() {
+    constructor() Owned(msg.sender) {
         _electionPhase = ElectionPhase.Registration;
     }
 
@@ -152,8 +152,8 @@ contract VotingApp is Ownable {
     /// @dev The voting phase must be opened only after the registration phase
 
     function openVoting(uint64 electionEnd_) external onlyOwner registrationOpen {
-        if (electionEnd_ < block.timestamp + MINIMUM_ELECTION_DURATION) revert ElectionEndsTooSoon(electionEnd_);
-        if (electionEnd_ > block.timestamp + MAXIMUM_ELECTION_DURATION) revert ElectionEndsTooLate(electionEnd_);
+        if (electionEnd_ < block.timestamp + MINIMUM_ELECTION_DURATION) revert ElectionDurationTooShort(electionEnd_);
+        if (electionEnd_ > block.timestamp + MAXIMUM_ELECTION_DURATION) revert ElectionDurationTooLong(electionEnd_);
         _electionEnd = electionEnd_;
         _electionPhase = ElectionPhase.Voting;
 
@@ -170,7 +170,6 @@ contract VotingApp is Ownable {
         if (!_voterRegistered[msg.sender]) revert VoterNotRegistered(msg.sender);
         if (_hasVoted[msg.sender]) revert AlreadyVoted(msg.sender);
         if (uint256(_electionEnd) < block.timestamp) revert ElectionEnded();
-
 
         _hasVoted[msg.sender] = true;
         /// @dev Integer overflow is unlikely, so this could be in an unchecked block

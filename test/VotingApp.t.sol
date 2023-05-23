@@ -29,8 +29,6 @@ contract VotingAppTest is Test {
 
     uint64 constant ELECTION_START = 1684827971;
     uint64 constant ELECTION_END = ELECTION_START + MINIMUM_ELECTION_DURATION + 1;
-    
-
 
     function setUp() public {
         // Set block number
@@ -59,44 +57,53 @@ contract VotingAppTest is Test {
         vm.assume(voter_ != address(0));
 
         vm.prank(attacker);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert("UNAUTHORIZED");
         votingApp.registerVoter(voter_);
     }
 
     /// @dev Revert on zero address input
     function testRegisterVoterZeroAddressInput() public {
-        vm.prank(owner);
         vm.expectRevert(VotingApp.ZeroAddressInput.selector);
+        vm.prank(owner);
         votingApp.registerVoter(address(0));
     }
 
-    /// @dev Revert on registration not open
-    function testRegisterVoterDuringRegistrationNotOpen(address voter_) public {
-        vm.assume(voter_ != address(0));
+    /// @dev Revert on voter already registered
+    function testRegisterVoterAlreadyRegistered() public {
+        address voter_ = makeAddr("voter");
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+        votingApp.registerVoter(voter_);
+        vm.expectRevert(abi.encodeWithSelector(VotingApp.VoterAlreadyRegistered.selector, voter_));
+        votingApp.registerVoter(voter_);
+    }
+
+    /// @dev Revert on registration not open
+    function testRegisterVoterDuringRegistrationNotOpen() public {
+        address voter_ = makeAddr("voter");
+
+        vm.startPrank(owner);
         votingApp.openVoting(ELECTION_END);
 
-        vm.prank(owner);
         vm.expectRevert(VotingApp.RegistrationNotOpen.selector);
         votingApp.registerVoter(voter_);
     }
 
     /// @dev Register candidate
-    function testRegisterCandidate(address candidate_) public {
-        vm.assume(candidate_ != address(0));
-
+    function testRegisterCandidate() public {
+        address candidate_ = makeAddr("candidate_");
+        
         vm.prank(owner);
         votingApp.registerCandidate(candidate_);
         assertTrue(votingApp.isCandidateRegistered(candidate_));
     }
 
     /// @dev Revert on not owner
-    function testRegisterCandidateNotOwner(address candidate_) public {
-        vm.assume(candidate_ != address(0));
+    function testRegisterCandidateNotOwner() public {
+        address candidate_ = makeAddr("candidate_");
 
         vm.prank(attacker);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert("UNAUTHORIZED");
         votingApp.registerCandidate(candidate_);
     }
 
@@ -107,9 +114,19 @@ contract VotingAppTest is Test {
         votingApp.registerCandidate(address(0));
     }
 
+    /// @dev Revert on candidate already registered
+    function testRegisterCandidateAlreadyRegistered() public {
+        address candidate_ = makeAddr("candidate_");
+
+        vm.startPrank(owner);
+        votingApp.registerCandidate(candidate_);
+        vm.expectRevert(abi.encodeWithSelector(VotingApp.CandidateAlreadyRegistered.selector, candidate_));
+        votingApp.registerCandidate(candidate_);
+    }
+
     /// @dev Revert on registration not open
-    function testRegisterCandidateDuringRegistrationNotOpen(address candidate_) public {
-        vm.assume(candidate_ != address(0));
+    function testRegisterCandidateDuringRegistrationNotOpen() public {
+        address candidate_ = makeAddr("candidate_");
 
         vm.prank(owner);
         votingApp.openVoting(ELECTION_END);
@@ -121,15 +138,32 @@ contract VotingAppTest is Test {
 
     /// @dev Open voting
     function testOpenVoting(uint64 end) public {
+        end = uint64(bound(end, ELECTION_START + MINIMUM_ELECTION_DURATION, ELECTION_START + MAXIMUM_ELECTION_DURATION));
         vm.prank(owner);
         votingApp.openVoting(end);
         assertEq(uint8(votingApp.electionPhase()), uint8(VotingApp.ElectionPhase.Voting));
     }
 
+    /// @dev Revert on election duration too short
+    function testOpenVotingElectionDurationTooShort(uint64 end) public {
+        end = uint64(bound(end, 0, ELECTION_START + MINIMUM_ELECTION_DURATION));
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(VotingApp.ElectionDurationTooShort.selector, end));
+        votingApp.openVoting(end);
+    }
+
+    /// @dev Revert on election duration too long
+    function testOpenVotingElectionDurationTooLong(uint64 end) public {
+        end = uint64(bound(end, ELECTION_START + MAXIMUM_ELECTION_DURATION + 1, type(uint64).max));
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(VotingApp.ElectionDurationTooLong.selector, end));
+        votingApp.openVoting(end);
+    }
+
     /// @dev Revert on not owner
     function testOpenVotingNotOwner(uint64 end) public {
         vm.prank(attacker);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert("UNAUTHORIZED");
         votingApp.openVoting(end);
     }
 
@@ -144,9 +178,9 @@ contract VotingAppTest is Test {
     }
 
     /// @dev Cast vote
-    function testCastVote(address voter_, address candidate_) public {
-        vm.assume(voter_ != address(0));
-        vm.assume(candidate_ != address(0));
+    function testCastVote() public {
+        address voter_ = makeAddr("voter");
+        address candidate_ = makeAddr("candidate_");
 
         vm.startPrank(owner);
         votingApp.registerVoter(voter_);
@@ -159,9 +193,9 @@ contract VotingAppTest is Test {
     }
 
     /// @dev Revert on double vote
-    function testCastVoteDoubleVote(address voter_, address candidate_) public {
-        vm.assume(voter_ != address(0));
-        vm.assume(candidate_ != address(0));
+    function testCastVoteDoubleVote() public {
+        address voter_ = makeAddr("voter");
+        address candidate_ = makeAddr("candidate_");
 
         vm.startPrank(owner);
         votingApp.registerVoter(voter_);
@@ -171,41 +205,42 @@ contract VotingAppTest is Test {
         vm.startPrank(voter_);
         votingApp.castVote(candidate_);
 
-        vm.expectRevert(VotingApp.AlreadyVoted.selector);
+        vm.expectRevert(abi.encodeWithSelector(VotingApp.AlreadyVoted.selector, voter_));
         votingApp.castVote(candidate_);
     }
 
     /// @dev Revert on not voter not registered
-    function testCastVoteVoterNotRegistered(address voter_, address candidate_) public {
-        vm.assume(voter_ != address(0));
-        vm.assume(candidate_ != address(0));
+    function testCastVoteVoterNotRegistered() public {
+        address voter_ = makeAddr("voter");
+        address candidate_ = makeAddr("candidate_");
+
         vm.startPrank(owner);
         votingApp.registerCandidate(candidate_);
         votingApp.openVoting(ELECTION_END);
 
         vm.startPrank(voter_);
-        vm.expectRevert(VotingApp.VoterNotRegistered.selector);
+        vm.expectRevert(abi.encodeWithSelector(VotingApp.VoterNotRegistered.selector, voter_));
         votingApp.castVote(candidate_);
     }
 
     /// @dev Revert on candidate not registered
-    function testCastVoteCandidateNotRegistered(address voter_, address candidate_) public {
-        vm.assume(voter_ != address(0));
-        vm.assume(candidate_ != address(0));
+    function testCastVoteCandidateNotRegistered() public {
+        address voter_ = makeAddr("voter");
+        address candidate_ = makeAddr("candidate_");
 
         vm.startPrank(owner);
         votingApp.registerVoter(voter_);
         votingApp.openVoting(ELECTION_END);
 
         vm.startPrank(voter_);
-        vm.expectRevert(VotingApp.CandidateNotRegistered.selector);
+        vm.expectRevert(abi.encodeWithSelector(VotingApp.CandidateNotRegistered.selector, candidate_));
         votingApp.castVote(candidate_);
     }
 
     /// @dev Revert on voting not open
-    function testCastVoteVotingNotOpen(address voter_, address candidate_) public {
-        vm.assume(voter_ != address(0));
-        vm.assume(candidate_ != address(0));
+    function testCastVoteVotingNotOpen() public {
+        address voter_ = makeAddr("voter");
+        address candidate_ = makeAddr("candidate_");
 
         vm.startPrank(owner);
         votingApp.registerVoter(voter_);
@@ -217,9 +252,9 @@ contract VotingAppTest is Test {
     }
 
     /// @dev Revert on voting closed
-    function testCastVoteElectionEnded(address voter_, address candidate_) public {
-        vm.assume(voter_ != address(0));
-        vm.assume(candidate_ != address(0));
+    function testCastVoteElectionEnded() public {
+        address voter_ = makeAddr("voter");
+        address candidate_ = makeAddr("candidate_");
 
         vm.startPrank(owner);
         votingApp.registerVoter(voter_);
@@ -235,9 +270,9 @@ contract VotingAppTest is Test {
     }
 
     /// @dev Declare winner
-    function testDeclareWinner(address voter_, address candidate_) public {
-        vm.assume(voter_ != address(0));
-        vm.assume(candidate_ != address(0));
+    function testDeclareWinner() public {
+        address voter_ = makeAddr("voter");
+        address candidate_ = makeAddr("candidate_");
 
         vm.startPrank(owner);
         votingApp.registerVoter(voter_);
@@ -256,13 +291,19 @@ contract VotingAppTest is Test {
 
     /// @dev Test multiple voters, multiple candidates and declare winner
     function testMultipleVotersMultipleCandidatesDeclareWinner(
-        uint256[] memory votes
+        uint256[10] memory votes
     ) public {
+        // Bound votes
+        for (uint256 i = 0; i < votes.length; i++) {
+            votes[i] = bound(votes[i], 1, 20);
+        }
+        
         // Setup candidates
         address[] memory candidates = new address[](votes.length);
-        for (uint256 i = 0; i < votes.length; i++) {
+        for (uint256 i = 0; i < candidates.length; i++) {
             candidates[i] = makeAddr(string.concat("candidate", i.toString()));
         }
+        require(candidates.length == votes.length, "Candidates and votes length mismatch");
 
         // Setup voters
         address[][] memory voters = new address[][](votes.length);
@@ -309,6 +350,7 @@ contract VotingAppTest is Test {
                 calculatedWinner = candidates[i];
             }
         }
+        console.log("Declared winner: ", declaredWinner);
 
         assertEq(declaredWinner, calculatedWinner);
     }
