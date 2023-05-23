@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.17;
 
 /// @dev OpenZeppelin Contracts v4.8.3
-import {Owned} from "solmate/auth/Owned.sol";
+import { Owned } from "solmate/auth/Owned.sol";
 
 // Task: Develop a Decentralized Voting System
 // Description:
@@ -51,10 +51,14 @@ contract VotingApp is Owned {
         Ended
     }
 
-    mapping(address voter => bool registered) internal _voterRegistered;
-    mapping(address voter => bool voted) internal _hasVoted;
-    mapping(address candidate => bool registered) internal _candidateRegistered;
-    mapping(address candidate => uint256) internal _votesCount;
+    /// @dev voter => registered
+    mapping(address => bool) internal _voterRegistered;
+    /// @dev voter => voted
+    mapping(address => bool) internal _hasVoted;
+    /// @dev candidate => registered
+    mapping(address => bool) internal _candidateRegistered;
+    /// @dev candidate => votes
+    mapping(address => uint256) internal _votesCount;
     address internal _frontRunner;
     uint256 internal _frontRunnerVotes;
 
@@ -66,7 +70,9 @@ contract VotingApp is Owned {
     }
 
     modifier registrationOpen() {
-        if (_electionPhase != ElectionPhase.Registration) revert RegistrationNotOpen();
+        if (_electionPhase != ElectionPhase.Registration) {
+            revert RegistrationNotOpen();
+        }
         _;
     }
 
@@ -87,11 +93,16 @@ contract VotingApp is Owned {
     /// @notice Returns whether the candidate is registered
     /// @param candidate The address of the candidate
     /// @return True if the candidate is registered, false otherwise
-    function isCandidateRegistered(address candidate) external view returns (bool) {
+    function isCandidateRegistered(address candidate)
+        external
+        view
+        returns (bool)
+    {
         return _candidateRegistered[candidate];
     }
 
-    /// @notice Returns the timestamp of the end of the election
+    /// @notice Returns the timestamp of the end of the election.
+    /// @notice Election end is set only after the voting phase has started.
     /// @dev It is not possible to vote after the election has ended
     /// @return The timestamp of the end of the election
     function electionEnd() external view returns (uint64) {
@@ -138,8 +149,14 @@ contract VotingApp is Owned {
     /// @dev Only the owner of the contract can register candidates
     /// @dev Candidates must be registered before the election starts
     /// @param candidate The address of the candidate
-    function registerCandidate(address candidate) external onlyOwner registrationOpen {
-        if (_candidateRegistered[candidate]) revert CandidateAlreadyRegistered(candidate);
+    function registerCandidate(address candidate)
+        external
+        onlyOwner
+        registrationOpen
+    {
+        if (_candidateRegistered[candidate]) {
+            revert CandidateAlreadyRegistered(candidate);
+        }
         if (candidate == address(0)) revert ZeroAddressInput();
 
         _candidateRegistered[candidate] = true;
@@ -151,9 +168,17 @@ contract VotingApp is Owned {
     /// @dev Only the owner of the contract can open the voting phase
     /// @dev The voting phase must be opened only after the registration phase
 
-    function openVoting(uint64 electionEnd_) external onlyOwner registrationOpen {
-        if (electionEnd_ < block.timestamp + MINIMUM_ELECTION_DURATION) revert ElectionDurationTooShort(electionEnd_);
-        if (electionEnd_ > block.timestamp + MAXIMUM_ELECTION_DURATION) revert ElectionDurationTooLong(electionEnd_);
+    function openVoting(uint64 electionEnd_)
+        external
+        onlyOwner
+        registrationOpen
+    {
+        if (electionEnd_ < block.timestamp + MINIMUM_ELECTION_DURATION) {
+            revert ElectionDurationTooShort(electionEnd_);
+        }
+        if (electionEnd_ > block.timestamp + MAXIMUM_ELECTION_DURATION) {
+            revert ElectionDurationTooLong(electionEnd_);
+        }
         _electionEnd = electionEnd_;
         _electionPhase = ElectionPhase.Voting;
 
@@ -166,8 +191,12 @@ contract VotingApp is Owned {
     /// @dev Voters can vote only once
     /// @dev Voters can vote only during the voting phase
     function castVote(address candidate) external votingOpen {
-        if (!_candidateRegistered[candidate]) revert CandidateNotRegistered(candidate);
-        if (!_voterRegistered[msg.sender]) revert VoterNotRegistered(msg.sender);
+        if (!_candidateRegistered[candidate]) {
+            revert CandidateNotRegistered(candidate);
+        }
+        if (!_voterRegistered[msg.sender]) {
+            revert VoterNotRegistered(msg.sender);
+        }
         if (_hasVoted[msg.sender]) revert AlreadyVoted(msg.sender);
         if (uint256(_electionEnd) < block.timestamp) revert ElectionEnded();
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import "../src/VotingApp.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 // Task: Develop a Decentralized Voting System
 // Description:
@@ -22,13 +22,18 @@ contract VotingAppTest is Test {
 
     VotingApp public votingApp;
 
-    address public owner = makeAddr("owner");
+    address public immutable owner = makeAddr("owner");
     // address public voter = makeAddr("voter");
     // address public candidate_ = makeAddr("candidate_");
-    address public attacker = makeAddr("attacker");
+    address public immutable attacker = makeAddr("attacker");
 
     uint64 constant ELECTION_START = 1684827971;
-    uint64 constant ELECTION_END = ELECTION_START + MINIMUM_ELECTION_DURATION + 1;
+    uint64 constant ELECTION_END =
+        ELECTION_START + MINIMUM_ELECTION_DURATION + 1;
+
+    function deploy() public {
+        votingApp = new VotingApp();
+    }
 
     function setUp() public {
         // Set block number
@@ -40,12 +45,12 @@ contract VotingAppTest is Test {
         vm.label(attacker, "attacker");
 
         vm.prank(owner);
-        votingApp = new VotingApp();
+        deploy();
     }
 
     /// @dev Registrer voter
-    function testRegisterVoter(address voter_) public {
-        vm.assume(voter_ != address(0));
+    function testRegisterVoter() public {
+        address voter_ = makeAddr("voter");
 
         vm.prank(owner);
         votingApp.registerVoter(voter_);
@@ -53,8 +58,8 @@ contract VotingAppTest is Test {
     }
 
     /// @dev Revert on not owner
-    function testRegisterVoterNotOwner(address voter_) public {
-        vm.assume(voter_ != address(0));
+    function testRegisterVoterNotOwner() public {
+        address voter_ = makeAddr("voter");
 
         vm.prank(attacker);
         vm.expectRevert("UNAUTHORIZED");
@@ -74,7 +79,11 @@ contract VotingAppTest is Test {
 
         vm.startPrank(owner);
         votingApp.registerVoter(voter_);
-        vm.expectRevert(abi.encodeWithSelector(VotingApp.VoterAlreadyRegistered.selector, voter_));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VotingApp.VoterAlreadyRegistered.selector, voter_
+            )
+        );
         votingApp.registerVoter(voter_);
     }
 
@@ -92,7 +101,7 @@ contract VotingAppTest is Test {
     /// @dev Register candidate
     function testRegisterCandidate() public {
         address candidate_ = makeAddr("candidate_");
-        
+
         vm.prank(owner);
         votingApp.registerCandidate(candidate_);
         assertTrue(votingApp.isCandidateRegistered(candidate_));
@@ -120,7 +129,11 @@ contract VotingAppTest is Test {
 
         vm.startPrank(owner);
         votingApp.registerCandidate(candidate_);
-        vm.expectRevert(abi.encodeWithSelector(VotingApp.CandidateAlreadyRegistered.selector, candidate_));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VotingApp.CandidateAlreadyRegistered.selector, candidate_
+            )
+        );
         votingApp.registerCandidate(candidate_);
     }
 
@@ -138,25 +151,48 @@ contract VotingAppTest is Test {
 
     /// @dev Open voting
     function testOpenVoting(uint64 end) public {
-        end = uint64(bound(end, ELECTION_START + MINIMUM_ELECTION_DURATION, ELECTION_START + MAXIMUM_ELECTION_DURATION));
+        end = uint64(
+            bound(
+                end,
+                ELECTION_START + MINIMUM_ELECTION_DURATION,
+                ELECTION_START + MAXIMUM_ELECTION_DURATION
+            )
+        );
         vm.prank(owner);
         votingApp.openVoting(end);
-        assertEq(uint8(votingApp.electionPhase()), uint8(VotingApp.ElectionPhase.Voting));
+        assertEq(
+            uint8(votingApp.electionPhase()),
+            uint8(VotingApp.ElectionPhase.Voting)
+        );
     }
 
     /// @dev Revert on election duration too short
     function testOpenVotingElectionDurationTooShort(uint64 end) public {
         end = uint64(bound(end, 0, ELECTION_START + MINIMUM_ELECTION_DURATION));
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(VotingApp.ElectionDurationTooShort.selector, end));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VotingApp.ElectionDurationTooShort.selector, end
+            )
+        );
         votingApp.openVoting(end);
     }
 
     /// @dev Revert on election duration too long
     function testOpenVotingElectionDurationTooLong(uint64 end) public {
-        end = uint64(bound(end, ELECTION_START + MAXIMUM_ELECTION_DURATION + 1, type(uint64).max));
+        end = uint64(
+            bound(
+                end,
+                ELECTION_START + MAXIMUM_ELECTION_DURATION + 1,
+                type(uint64).max
+            )
+        );
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(VotingApp.ElectionDurationTooLong.selector, end));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VotingApp.ElectionDurationTooLong.selector, end
+            )
+        );
         votingApp.openVoting(end);
     }
 
@@ -205,7 +241,9 @@ contract VotingAppTest is Test {
         vm.startPrank(voter_);
         votingApp.castVote(candidate_);
 
-        vm.expectRevert(abi.encodeWithSelector(VotingApp.AlreadyVoted.selector, voter_));
+        vm.expectRevert(
+            abi.encodeWithSelector(VotingApp.AlreadyVoted.selector, voter_)
+        );
         votingApp.castVote(candidate_);
     }
 
@@ -219,7 +257,11 @@ contract VotingAppTest is Test {
         votingApp.openVoting(ELECTION_END);
 
         vm.startPrank(voter_);
-        vm.expectRevert(abi.encodeWithSelector(VotingApp.VoterNotRegistered.selector, voter_));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VotingApp.VoterNotRegistered.selector, voter_
+            )
+        );
         votingApp.castVote(candidate_);
     }
 
@@ -233,7 +275,11 @@ contract VotingAppTest is Test {
         votingApp.openVoting(ELECTION_END);
 
         vm.startPrank(voter_);
-        vm.expectRevert(abi.encodeWithSelector(VotingApp.CandidateNotRegistered.selector, candidate_));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VotingApp.CandidateNotRegistered.selector, candidate_
+            )
+        );
         votingApp.castVote(candidate_);
     }
 
@@ -297,20 +343,24 @@ contract VotingAppTest is Test {
         for (uint256 i = 0; i < votes.length; i++) {
             votes[i] = bound(votes[i], 1, 20);
         }
-        
+
         // Setup candidates
         address[] memory candidates = new address[](votes.length);
         for (uint256 i = 0; i < candidates.length; i++) {
             candidates[i] = makeAddr(string.concat("candidate", i.toString()));
         }
-        require(candidates.length == votes.length, "Candidates and votes length mismatch");
+        require(
+            candidates.length == votes.length,
+            "Candidates and votes length mismatch"
+        );
 
         // Setup voters
         address[][] memory voters = new address[][](votes.length);
         for (uint256 i = 0; i < votes.length; i++) {
             voters[i] = new address[](votes[i]);
             for (uint256 j = 0; j < votes[i]; j++) {
-                voters[i][j] = makeAddr(string.concat("voter", i.toString(), j.toString()));
+                voters[i][j] =
+                    makeAddr(string.concat("voter", i.toString(), j.toString()));
             }
         }
 

@@ -9,8 +9,44 @@ VotingApp is a simple decentralized voting system implemented in Solidity. The s
 1. **Winner Declaration:** The contract determines the winner of the election based on the candidate who achieved the most votes the first.
 1. **Election Duration:** The minimum duration of an election is 1 day and the maximum duration of an election is 1 year.
 
-## Deployment
+## Install
+Install Foundry with foundryup:
+```
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
 
+## Run tests
+```
+forge test
+```
+
+## Deploy
+```
+FOUNDRY_PROFILE=optimized forge script VotingAppDeployScript --verify --multi --broadcast
+```
+
+## Deployments By EVM Chain
+The VotingApp contract has been deployed on the following EVM chains:
+
+<table>
+<tr>
+<th>Network</th>
+<th>VotingApp</th>
+</tr>
+<tr>
+<td>Goerli</td>
+<td>[0x0000363AeF5c879eFf0339725989D7953BE35716](https://goerli.etherscan.io/address/0x0000363AeF5c879eFf0339725989D7953BE35716#code)</td>
+</tr>
+<tr>
+<td>Sepolia</td>
+<td>[0x0000363AeF5c879eFf0339725989D7953BE35716](https://sepolia.etherscan.io/address/0x0000363AeF5c879eFf0339725989D7953BE35716#code)</td>
+</tr>
+<tr>
+<td>Polygon</td>
+<td>[0x0000363AeF5c879eFf0339725989D7953BE35716](https://polygonscan.com/address/0x0000363AeF5c879eFf0339725989D7953BE35716#code)</td>
+</tr>
+</table>
 
 ## Note on Winner Ties
 Please note that in the case of a tie (i.e., multiple candidates receiving the same top number of votes), the winner is determined as the first candidate who reached the top number of votes. This design choice means that the system is susceptible to front-running attacks. In a front-running scenario, an entity could potentially observe a transaction that's been broadcast to the network (but not yet confirmed), and then submit their own transaction with a higher gas fee to secure priority in the transaction queue, thus changing the outcome of the election. However, this model was adopted to keep gas costs low and maintain the simplicity of this app. More sophisticated solutions to handle ties or prevent front-running attacks are beyond the scope of this simple demonstration app. It's important to consider these aspects if you're planning to use this code for more substantial applications or purposes.
